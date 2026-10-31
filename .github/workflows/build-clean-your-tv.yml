@@ -1,0 +1,55 @@
+name: Build Clean Your TV
+
+# Builds the two APKs in clean-your-tv/ on GitHub's computers:
+#   clean-your-tv-phone.apk  -> install on your phone
+#   clean-home-tv.apk        -> the ad-free home screen (the phone app installs it on the TV for you)
+# Run it from the Actions tab, or it runs on every push that changes clean-your-tv/.
+on:
+  workflow_dispatch:
+  push:
+    paths:
+      - "clean-your-tv/**"
+      - ".github/workflows/build-clean-your-tv.yml"
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: clean-your-tv
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "17"
+
+      - uses: android-actions/setup-android@v3
+
+      - uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: "8.14.3"
+
+      - name: Test the TV profile and safety rules
+        run: gradle --no-daemon :core:test
+
+      - name: Build Clean Home (TV)
+        run: gradle --no-daemon :tvhome:assembleDebug
+
+      - name: Bundle Clean Home inside the phone app
+        run: cp tvhome/build/outputs/apk/debug/tvhome-debug.apk phone/src/main/assets/clean-home.apk
+
+      - name: Build Clean Your TV (phone)
+        run: gradle --no-daemon :phone:assembleDebug
+
+      - name: Name the APKs
+        run: |
+          mkdir -p out
+          cp phone/build/outputs/apk/debug/phone-debug.apk out/clean-your-tv-phone.apk
+          cp tvhome/build/outputs/apk/debug/tvhome-debug.apk out/clean-home-tv.apk
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: clean-your-tv-apks
+          path: clean-your-tv/out/*.apk

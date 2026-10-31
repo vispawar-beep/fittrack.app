@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- 320x180 TV banner: a screen outline with a check mark, on a deep teal tile. -->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="320dp" android:height="180dp"
+    android:viewportWidth="320" android:viewportHeight="180">
+    <path android:fillColor="#0F3D3E" android:pathData="M0,0h320v180h-320z" />
+    <path android:strokeColor="#E8F5F2" android:strokeWidth="8" android:fillColor="#00000000"
+        android:pathData="M100,40h120a8,8 0 0 1 8,8v72a8,8 0 0 1 -8,8h-120a8,8 0 0 1 -8,-8v-72a8,8 0 0 1 8,-8z" />
+    <path android:strokeColor="#E8F5F2" android:strokeWidth="8" android:fillColor="#00000000"
+        android:pathData="M130,150h60" />
+    <path android:strokeColor="#5EEAD4" android:strokeWidth="10" android:fillColor="#00000000"
+        android:strokeLineCap="round" android:strokeLineJoin="round"
+        android:pathData="M132,86l20,20l38,-38" />
+</vector>
