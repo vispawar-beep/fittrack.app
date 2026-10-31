@@ -13,7 +13,7 @@ the generic rules.
 | Part | Runs on | Does |
 |---|---|---|
 | `phone/` | your phone | Connects to the TV, shows each app with a safety rating, turns apps off and on, applies speed tweaks, and keeps an undo record |
-| `tvhome/` | the TV | **Clean Home**, a fast home screen with a clock, your apps, and Live TV/Wi-Fi/Settings shortcuts. It has no ads, no recommendation rows and no network calls |
+| `tvhome/` | the TV | **Clean Home**, a crystal (frosted-glass) home screen: a large clock and date, a weather card, your apps in iOS-style glass tiles, a glass dock (Live TV, Wi-Fi, Settings) and "Avnish's TV" at the bottom. It shows no ads or recommendation rows; its only network use is the weather |
 | `core/` | both | The Nokia R2 profile, the list of safe and protected apps, and the command builder, with tests built from your TV report |
 
 ## How it keeps the TV safe
@@ -65,6 +65,20 @@ clock, show-sticker overlay, TalkBack, text-to-speech.
 **Advanced (not selected; the app shows what you lose):** Google Assistant/voice
 search, `com.realtek.leanbacklauncher.partnercustomizer` (it also supplies the stock
 home's Inputs button), firmware updater.
+
+## Clean Home: the crystal look
+
+- **Time and date:** a large, thin clock with the date underneath, top left.
+- **Weather:** a frosted-glass card, top right. Select it with the remote and press OK to
+  enter your city (e.g. Pune). It shows the temperature, conditions and today's high/low,
+  and updates every 30 minutes while the home screen is on screen. Data comes from
+  [Open-Meteo](https://open-meteo.com): free, with no account, API key or tracking.
+- **Icons:** each app's own icon in an iOS-style rounded glass square with a top shine.
+  The dock uses original iOS-style symbols. Apple's own icons and SF Symbols are not
+  included, because they're Apple's copyrighted artwork.
+- **Name:** "Avnish's TV" at the bottom. To change it:
+  `adb shell am start -n app.cleanyourtv.home/.HomeActivity --es tv_name "New name"`.
+- Hold OK on an app to move it to the front, hide it or open its settings.
 
 ## Speed tweaks
 

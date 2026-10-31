@@ -8,106 +8,137 @@ import android.content.pm.PackageManager
 import android.graphics.Color
 import android.graphics.Typeface
 import android.graphics.drawable.Drawable
-import android.graphics.drawable.GradientDrawable
 import android.net.Uri
 import android.os.Bundle
 import android.os.Handler
 import android.os.Looper
 import android.provider.Settings
+import android.text.InputType
 import android.text.format.DateFormat
 import android.view.Gravity
 import android.view.KeyEvent
 import android.view.View
 import android.view.ViewGroup
+import android.widget.AdapterView
 import android.widget.BaseAdapter
+import android.widget.EditText
 import android.widget.FrameLayout
 import android.widget.GridView
-import android.widget.ImageView
 import android.widget.LinearLayout
 import android.widget.TextView
 import java.util.Date
 
 /**
- * Clean Home: a home screen with a clock, a few shortcuts and your apps.
- * No ads, no recommendation rows, no network calls, no background services.
+ * Clean Home, crystal edition: frosted-glass widgets for the time, date and weather, apps in
+ * iOS-style glass squircles, a glass dock, and the TV's name at the bottom.
+ * No ads and no recommendation rows. The only network use is the weather (Open-Meteo).
  */
 class HomeActivity : Activity() {
 
-    private data class AppEntry(val pkg: String, val label: String, val banner: Drawable?, val icon: Drawable?, val launch: Intent)
+    private data class AppEntry(val pkg: String, val label: String, val icon: Drawable?, val launch: Intent)
 
     private val prefs by lazy { getSharedPreferences("home", Context.MODE_PRIVATE) }
     private val handler = Handler(Looper.getMainLooper())
     private lateinit var clock: TextView
     private lateinit var date: TextView
+    private lateinit var weatherIcon: IconTile
+    private lateinit var weatherTemp: TextView
+    private lateinit var weatherText: TextView
+    private lateinit var tvName: TextView
     private lateinit var grid: GridView
     private val adapter = AppAdapter()
+    private var lastWeatherFetch = 0L
 
     private val tick = object : Runnable {
         override fun run() {
             val now = Date()
-            clock.text = DateFormat.getTimeFormat(this@HomeActivity).format(now)
+            clock.text = DateFormat.format(if (DateFormat.is24HourFormat(this@HomeActivity)) "HH:mm" else "h:mm", now)
             date.text = DateFormat.format("EEEE, d MMMM", now)
-            handler.postDelayed(this, 15_000)
+            if (System.currentTimeMillis() - lastWeatherFetch > WEATHER_EVERY_MS) refreshWeather()
+            handler.postDelayed(this, 10_000)
         }
     }
 
     private fun dp(v: Int) = (v * resources.displayMetrics.density).toInt()
 
-    override fun onCreate(savedInstanceState: Bundle?) {
-        super.onCreate(savedInstanceState)
-        val root = LinearLayout(this).apply {
-            orientation = LinearLayout.VERTICAL
-            setPadding(dp(48), dp(32), dp(48), dp(24))
-            background = GradientDrawable(
-                GradientDrawable.Orientation.TL_BR,
-                intArrayOf(Color.parseColor("#0B1F24"), Color.parseColor("#102A30"), Color.parseColor("#06131A")),
-            )
+    private fun text(size: Float, color: Int, face: String = "sans-serif", style: Int = Typeface.NORMAL) =
+        TextView(this).apply {
+            textSize = size
+            setTextColor(color)
+            typeface = Typeface.create(face, style)
+            setShadowLayer(dp(6).toFloat(), 0f, dp(1).toFloat(), Color.argb(90, 0, 0, 0))
         }
 
-        val header = LinearLayout(this).apply { orientation = LinearLayout.HORIZONTAL; gravity = Gravity.CENTER_VERTICAL }
-        val clockBox = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL }
-        clock = TextView(this).apply { textSize = 44f; setTextColor(Color.WHITE); typeface = Typeface.create("sans-serif-light", Typeface.NORMAL) }
-        date = TextView(this).apply { textSize = 16f; setTextColor(Color.parseColor("#9FB8BD")) }
-        clockBox.addView(clock); clockBox.addView(date)
-        header.addView(clockBox, LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f))
+    override fun onCreate(savedInstanceState: Bundle?) {
+        super.onCreate(savedInstanceState)
+        applyExtras(intent)
 
-        shortcut("Live TV & inputs") { launchPackage("com.android.tv") }?.let { header.addView(it) }
-        shortcut("Wi-Fi") { safeStart(Intent(Settings.ACTION_WIFI_SETTINGS)) }?.let { header.addView(it) }
-        shortcut("Settings") { safeStart(Intent(Settings.ACTION_SETTINGS)) }?.let { header.addView(it) }
-        root.addView(header)
+        val root = LinearLayout(this).apply {
+            orientation = LinearLayout.VERTICAL
+            setPadding(dp(56), dp(28), dp(56), dp(14))
+            background = CrystalWallpaper()
+        }
 
-        root.addView(TextView(this).apply {
-            text = "Your apps"
-            textSize = 18f
-            setTextColor(Color.parseColor("#CFE3E6"))
-            setPadding(0, dp(28), 0, dp(12))
-        })
+        // ---- Top: time and date on the left, weather card on the right ----
+        val top = LinearLayout(this).apply { orientation = LinearLayout.HORIZONTAL; gravity = Gravity.CENTER_VERTICAL }
+        val timeBox = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL }
+        clock = text(76f, Crystal.TEXT, "sans-serif-thin")
+        date = text(20f, Crystal.TEXT_SOFT, "sans-serif-light")
+        timeBox.addView(clock)
+        timeBox.addView(date)
+        top.addView(timeBox, LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f))
+        top.addView(weatherCard())
+        root.addView(top)
 
+        // ---- Middle: apps in glass squircles ----
         grid = GridView(this).apply {
-            numColumns = 5
-            horizontalSpacing = dp(20)
-            verticalSpacing = dp(20)
+            numColumns = 7
+            verticalSpacing = dp(14)
             stretchMode = GridView.STRETCH_COLUMN_WIDTH
-            selector = GradientDrawable().apply { setColor(Color.TRANSPARENT) }
+            selector = android.graphics.drawable.ColorDrawable(Color.TRANSPARENT)
             clipToPadding = false
-            setPadding(dp(8), dp(8), dp(8), dp(8))
+            setPadding(dp(8), dp(16), dp(8), dp(8))
             adapter = this@HomeActivity.adapter
             setOnItemClickListener { _, _, pos, _ -> safeStart(this@HomeActivity.adapter.getItem(pos).launch) }
             setOnItemLongClickListener { _, _, pos, _ -> showAppMenu(this@HomeActivity.adapter.getItem(pos)); true }
         }
         root.addView(grid, LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, 0, 1f))
 
-        root.addView(TextView(this).apply {
-            text = "Hold OK on an app to hide it or open its settings."
-            textSize = 12f
-            setTextColor(Color.parseColor("#6E8A90"))
-            setPadding(0, dp(8), 0, 0)
-        })
+        // ---- Bottom: glass dock, then the TV's name ----
+        root.addView(dock(), LinearLayout.LayoutParams(ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT)
+            .apply { gravity = Gravity.CENTER_HORIZONTAL; topMargin = dp(6) })
+        tvName = text(15f, Crystal.TEXT_FAINT, "sans-serif-light").apply {
+            letterSpacing = 0.18f
+            gravity = Gravity.CENTER
+            setPadding(0, dp(10), 0, 0)
+        }
+        root.addView(tvName, LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT))
+
         setContentView(root)
+        wireGridFocus()
+        showCachedWeather()
+    }
+
+    override fun onNewIntent(intent: Intent) {
+        super.onNewIntent(intent)
+        applyExtras(intent)
+        tvName.text = prefs.getString("tv_name", DEFAULT_NAME)
+        if (intent.hasExtra(EXTRA_CITY)) { lastWeatherFetch = 0; refreshWeather() }
+    }
+
+    /**
+     * Optional settings from the phone app or ADB:
+     * `am start -n app.cleanyourtv.home/.HomeActivity --es city Pune --es tv_name "Avnish's TV"`.
+     */
+    private fun applyExtras(intent: Intent?) {
+        intent ?: return
+        intent.getStringExtra(EXTRA_NAME)?.takeIf { it.isNotBlank() }?.let { prefs.edit().putString("tv_name", it.trim().take(40)).apply() }
+        intent.getStringExtra(EXTRA_CITY)?.takeIf { it.isNotBlank() }?.let { prefs.edit().putString("w_pending", it.trim()).apply() }
     }
 
     override fun onResume() {
         super.onResume()
+        tvName.text = prefs.getString("tv_name", DEFAULT_NAME)
         adapter.set(loadApps())
         handler.post(tick)
         grid.requestFocus()
@@ -132,6 +163,144 @@ class HomeActivity : Activity() {
         return packageManager.resolveActivity(home, PackageManager.MATCH_DEFAULT_ONLY)?.activityInfo?.packageName == packageName
     }
 
+    // ---------------------------------------------------------------- weather
+
+    private fun weatherCard(): View {
+        val card = LinearLayout(this).apply {
+            orientation = LinearLayout.HORIZONTAL
+            gravity = Gravity.CENTER_VERTICAL
+            background = Crystal.panel(this@HomeActivity, 26f)
+            setPadding(dp(14), dp(12), dp(24), dp(12))
+            isFocusable = true
+            isClickable = true
+            setOnClickListener { askCity() }
+            setOnFocusChangeListener { v, f -> focusPanel(v, f) }
+        }
+        weatherIcon = IconTile(this).apply { tint = null }
+        card.addView(weatherIcon, LinearLayout.LayoutParams(dp(78), dp(78)))
+        val col = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL; setPadding(dp(12), 0, 0, 0) }
+        weatherTemp = text(38f, Crystal.TEXT, "sans-serif-light")
+        weatherText = text(14f, Crystal.TEXT_SOFT)
+        col.addView(weatherTemp)
+        col.addView(weatherText)
+        card.addView(col)
+        return card
+    }
+
+    private fun showWeather(w: WeatherNow) {
+        weatherIcon.icon = Glyph(w.glyph)
+        weatherTemp.text = "${w.temp}°"
+        weatherText.text = "${w.condition}\nH:${w.high}°  L:${w.low}°  ·  ${w.place}"
+    }
+
+    private fun showCachedWeather() {
+        val place = Weather.loadPlace(prefs)
+        val cached = place?.let { Weather.loadLast(prefs, it) }
+        if (cached != null) {
+            showWeather(cached)
+        } else {
+            weatherIcon.icon = Glyph(GlyphKind.CLOUD_SUN)
+            weatherTemp.text = "--°"
+            weatherText.text = if (place == null) "Weather\nPress OK to set your city" else "Weather\n${place.name}"
+        }
+    }
+
+    private fun refreshWeather() {
+        lastWeatherFetch = System.currentTimeMillis()
+        val pending = prefs.getString("w_pending", null)
+        val known = Weather.loadPlace(prefs)
+        if (pending == null && known == null) return
+        Thread {
+            val result = runCatching {
+                val place = if (pending != null) {
+                    (Weather.findPlace(pending) ?: error("City not found: $pending")).also {
+                        Weather.savePlace(prefs, it)
+                        prefs.edit().remove("w_pending").apply()
+                    }
+                } else known!!
+                Weather.fetch(place)
+            }
+            handler.post {
+                result.onSuccess { Weather.saveLast(prefs, it); showWeather(it) }
+                    .onFailure { e -> weatherFailed(e) }
+            }
+        }.start()
+    }
+
+    private fun weatherFailed(e: Throwable) {
+        if (e is IllegalStateException) {
+            prefs.edit().remove("w_pending").apply()
+            weatherText.text = "${e.message}\nPress OK to try another"
+        } else {
+            // Network errors keep the last weather on screen and try again in two minutes.
+            lastWeatherFetch = System.currentTimeMillis() - WEATHER_EVERY_MS + RETRY_MS
+        }
+    }
+
+    private fun askCity() {
+        val input = EditText(this).apply {
+            hint = "City, e.g. Pune"
+            inputType = InputType.TYPE_CLASS_TEXT or InputType.TYPE_TEXT_FLAG_CAP_WORDS
+            setText(Weather.loadPlace(prefs)?.name.orEmpty())
+            setSelection(text.length)
+        }
+        val box = FrameLayout(this).apply { setPadding(dp(24), dp(8), dp(24), 0); addView(input) }
+        AlertDialog.Builder(this)
+            .setTitle("Weather city")
+            .setView(box)
+            .setPositiveButton("Save") { _, _ ->
+                val city = input.text.toString().trim()
+                if (city.isNotEmpty()) {
+                    prefs.edit().putString("w_pending", city).apply()
+                    weatherText.text = "Finding $city…"
+                    refreshWeather()
+                }
+            }
+            .setNegativeButton("Cancel", null)
+            .show()
+    }
+
+    // ---------------------------------------------------------------- dock
+
+    private data class DockItem(val label: String, val glyph: GlyphKind, val colors: IntArray, val action: () -> Unit)
+
+    private fun dock(): View {
+        val bar = LinearLayout(this).apply {
+            orientation = LinearLayout.HORIZONTAL
+            gravity = Gravity.CENTER
+            background = Crystal.panel(this@HomeActivity, 30f, strength = 2)
+            setPadding(dp(18), dp(10), dp(18), dp(10))
+        }
+        val items = mutableListOf<DockItem>()
+        if (hasLaunch(LIVE_TV)) {
+            items += DockItem("Live TV", GlyphKind.TV, intArrayOf(Color.rgb(58, 58, 64), Color.rgb(18, 18, 22))) { launchPackage(LIVE_TV) }
+        }
+        items += DockItem("Wi-Fi", GlyphKind.WIFI, intArrayOf(Color.rgb(64, 156, 255), Color.rgb(10, 96, 230))) {
+            safeStart(Intent(Settings.ACTION_WIFI_SETTINGS))
+        }
+        items += DockItem("Settings", GlyphKind.GEAR, intArrayOf(Color.rgb(160, 164, 172), Color.rgb(98, 102, 110))) {
+            safeStart(Intent(Settings.ACTION_SETTINGS))
+        }
+        for (item in items) {
+            val cell = LinearLayout(this).apply {
+                orientation = LinearLayout.VERTICAL
+                gravity = Gravity.CENTER_HORIZONTAL
+                isFocusable = true
+                isClickable = true
+                setPadding(dp(14), 0, dp(14), 0)
+                setOnClickListener { item.action() }
+            }
+            val tile = IconTile(this).apply { tint = item.colors; icon = Glyph(item.glyph) }
+            cell.addView(tile, LinearLayout.LayoutParams(dp(62), dp(62)))
+            cell.addView(text(11f, Crystal.TEXT_SOFT).apply { text = item.label; gravity = Gravity.CENTER })
+            cell.setOnFocusChangeListener { v, f -> tile.highlighted = f; scale(v, f) }
+            bar.addView(cell)
+        }
+        return bar
+    }
+
+    // ---------------------------------------------------------------- apps
+
     private fun hidden(): Set<String> = prefs.getStringSet("hidden", emptySet()) ?: emptySet()
 
     private fun loadApps(): List<AppEntry> {
@@ -147,9 +316,9 @@ class HomeActivity : Activity() {
                 val launch = Intent(Intent.ACTION_MAIN).addCategory(category)
                     .setClassName(pkg, ai.name)
                     .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_RESET_TASK_IF_NEEDED)
-                val banner = runCatching { ai.loadBanner(pm) ?: ai.applicationInfo.loadBanner(pm) }.getOrNull()
-                val icon = if (banner == null) runCatching { ai.loadIcon(pm) }.getOrNull() else null
-                seen[pkg] = AppEntry(pkg, ri.loadLabel(pm).toString(), banner, icon, launch)
+                // iOS-style tiles use the square app icon, not the wide TV banner.
+                val icon = runCatching { ai.loadIcon(pm) }.getOrNull()
+                seen[pkg] = AppEntry(pkg, ri.loadLabel(pm).toString(), icon, launch)
             }
         }
         val order = prefs.getString("order", "").orEmpty().split(',').filter { it.isNotEmpty() }
@@ -175,6 +344,9 @@ class HomeActivity : Activity() {
             .show()
     }
 
+    private fun hasLaunch(pkg: String) =
+        packageManager.getLeanbackLaunchIntentForPackage(pkg) != null || packageManager.getLaunchIntentForPackage(pkg) != null
+
     private fun launchPackage(pkg: String) {
         val i = packageManager.getLeanbackLaunchIntentForPackage(pkg) ?: packageManager.getLaunchIntentForPackage(pkg)
         if (i != null) safeStart(i)
@@ -184,35 +356,42 @@ class HomeActivity : Activity() {
         runCatching { startActivity(intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)) }
     }
 
-    private fun focusBackground(): GradientDrawable = GradientDrawable().apply {
-        cornerRadius = dp(10).toFloat()
-        setColor(Color.parseColor("#1A3A41"))
+    // ---------------------------------------------------------------- focus
+
+    private fun scale(v: View, focused: Boolean) {
+        val s = if (focused) 1.12f else 1f
+        v.animate().scaleX(s).scaleY(s).setDuration(140).start()
     }
 
-    private fun applyFocusStyle(v: View, focused: Boolean) {
-        (v.background as? GradientDrawable)?.setStroke(dp(3), if (focused) Color.parseColor("#5EEAD4") else Color.TRANSPARENT)
-        v.animate().scaleX(if (focused) 1.08f else 1f).scaleY(if (focused) 1.08f else 1f).setDuration(120).start()
-    }
-
-    /** A header button. Returns null when [action] has nothing to open on this TV. */
-    private fun shortcut(label: String, action: () -> Unit): View? {
-        if (label.startsWith("Live TV") &&
-            packageManager.getLeanbackLaunchIntentForPackage("com.android.tv") == null &&
-            packageManager.getLaunchIntentForPackage("com.android.tv") == null
-        ) return null
-        return TextView(this).apply {
-            text = label
-            textSize = 16f
-            setTextColor(Color.WHITE)
-            setPadding(dp(20), dp(10), dp(20), dp(10))
-            background = focusBackground()
-            isFocusable = true
-            isClickable = true
-            setOnClickListener { action() }
-            setOnFocusChangeListener { v, f -> applyFocusStyle(v, f) }
-            layoutParams = LinearLayout.LayoutParams(ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT)
-                .apply { marginStart = dp(12) }
+    private fun focusPanel(v: View, focused: Boolean) {
+        v.background = Crystal.panel(this, 26f, strength = if (focused) 3 else 1).apply {
+            if (focused) setStroke(dp(2), Crystal.FOCUS)
         }
+        scale(v, focused)
+    }
+
+    private fun styleCell(view: View?, focused: Boolean) {
+        view ?: return
+        (view.findViewById<View>(TILE_ID) as? IconTile)?.highlighted = focused
+        scale(view, focused)
+    }
+
+    /** GridView moves its own selection with the D-pad; mirror it onto the tiles. */
+    private fun wireGridFocus() {
+        grid.onItemSelectedListener = object : AdapterView.OnItemSelectedListener {
+            private var last: View? = null
+            override fun onItemSelected(parent: AdapterView<*>?, view: View?, position: Int, id: Long) {
+                styleCell(last, false)
+                if (grid.hasFocus()) styleCell(view, true)
+                last = view
+            }
+
+            override fun onNothingSelected(parent: AdapterView<*>?) {
+                styleCell(last, false)
+                last = null
+            }
+        }
+        grid.setOnFocusChangeListener { _, hasFocus -> styleCell(grid.selectedView, hasFocus) }
     }
 
     private inner class AppAdapter : BaseAdapter() {
@@ -225,60 +404,37 @@ class HomeActivity : Activity() {
 
         override fun getView(position: Int, convertView: View?, parent: ViewGroup): View {
             val app = items[position]
-            val tile = (convertView as? FrameLayout) ?: FrameLayout(this@HomeActivity).apply {
-                layoutParams = ViewGroup.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, dp(110))
-                background = focusBackground()
-                addView(ImageView(context).apply {
-                    id = android.R.id.icon
-                    scaleType = ImageView.ScaleType.FIT_CENTER
-                }, FrameLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT))
-                addView(TextView(context).apply {
+            val cell = (convertView as? LinearLayout) ?: LinearLayout(this@HomeActivity).apply {
+                orientation = LinearLayout.VERTICAL
+                gravity = Gravity.CENTER_HORIZONTAL
+                setPadding(0, dp(6), 0, dp(4))
+                addView(IconTile(context).apply { id = TILE_ID }, LinearLayout.LayoutParams(dp(84), dp(84)))
+                addView(text(12f, Crystal.TEXT).apply {
                     id = android.R.id.text1
-                    setTextColor(Color.WHITE)
-                    textSize = 14f
                     gravity = Gravity.CENTER
-                    maxLines = 2
-                }, FrameLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT, Gravity.BOTTOM))
+                    maxLines = 1
+                    ellipsize = android.text.TextUtils.TruncateAt.END
+                    setPadding(dp(4), dp(6), dp(4), 0)
+                }, LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT))
             }
-            tile.scaleX = 1f
-            tile.scaleY = 1f
-            (tile.background as? GradientDrawable)?.setStroke(dp(3), Color.TRANSPARENT)
-            val image = tile.findViewById<ImageView>(android.R.id.icon)
-            val label = tile.findViewById<TextView>(android.R.id.text1)
-            if (app.banner != null) {
-                image.setImageDrawable(app.banner)
-                image.setPadding(0, 0, 0, 0)
-                label.visibility = View.GONE
-            } else {
-                image.setImageDrawable(app.icon)
-                image.setPadding(dp(28), dp(10), dp(28), dp(34))
-                label.text = app.label
-                label.setPadding(dp(6), 0, dp(6), dp(8))
-                label.visibility = View.VISIBLE
-            }
-            tile.contentDescription = app.label
-            return tile
+            cell.scaleX = 1f
+            cell.scaleY = 1f
+            val tile = cell.findViewById<IconTile>(TILE_ID)
+            tile.highlighted = false
+            tile.icon = app.icon
+            cell.findViewById<TextView>(android.R.id.text1).text = app.label
+            cell.contentDescription = app.label
+            return cell
         }
     }
 
-    /** GridView moves its own selection with the D-pad; mirror it onto the tiles' focus style. */
-    override fun onPostCreate(savedInstanceState: Bundle?) {
-        super.onPostCreate(savedInstanceState)
-        grid.setOnItemSelectedListener(object : android.widget.AdapterView.OnItemSelectedListener {
-            private var last: View? = null
-            override fun onItemSelected(parent: android.widget.AdapterView<*>?, view: View?, position: Int, id: Long) {
-                last?.let { applyFocusStyle(it, false) }
-                view?.let { applyFocusStyle(it, true) }
-                last = view
-            }
-
-            override fun onNothingSelected(parent: android.widget.AdapterView<*>?) {
-                last?.let { applyFocusStyle(it, false) }
-                last = null
-            }
-        })
-        grid.setOnFocusChangeListener { _, hasFocus ->
-            grid.selectedView?.let { applyFocusStyle(it, hasFocus) }
-        }
+    companion object {
+        const val DEFAULT_NAME = "Avnish's TV"
+        const val EXTRA_NAME = "tv_name"
+        const val EXTRA_CITY = "city"
+        private const val LIVE_TV = "com.android.tv"
+        private val TILE_ID = View.generateViewId()
+        private const val WEATHER_EVERY_MS = 30 * 60 * 1000L
+        private const val RETRY_MS = 2 * 60 * 1000L
     }
 }
