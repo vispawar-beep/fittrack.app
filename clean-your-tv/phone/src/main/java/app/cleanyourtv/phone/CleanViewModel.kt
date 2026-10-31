@@ -42,6 +42,10 @@ data class UiState(
     val cleanHomeInstalled: Boolean = false,
     /** Clean Home's Home redirect (accessibility service) is on. */
     val redirectOn: Boolean = false,
+    /** This phone app's version; it bundles the Clean Home of the same version. */
+    val appVersion: String = "",
+    /** Clean Home's version on the TV, or null if it isn't installed or can't be read. */
+    val tvHomeVersion: String? = null,
     val cleanHomeApkBundled: Boolean = false,
     /** Seconds left before the Clean Home trial rolls back on its own; null when no trial is running. */
     val trialSecondsLeft: Int? = null,
@@ -53,7 +57,10 @@ class CleanViewModel(app: Application) : AndroidViewModel(app) {
     private val tv = TvConnection(app)
     private val store = HistoryStore(app)
     private val _state = MutableStateFlow(
-        UiState(host = store.lastHost(), port = store.lastPort(), cleanHomeApkBundled = bundledApkExists())
+        UiState(
+            host = store.lastHost(), port = store.lastPort(), cleanHomeApkBundled = bundledApkExists(),
+            appVersion = runCatching { app.packageManager.getPackageInfo(app.packageName, 0).versionName }.getOrNull().orEmpty(),
+        )
     )
     val state: StateFlow<UiState> = _state
     private var trialJob: Job? = null
@@ -109,6 +116,9 @@ class CleanViewModel(app: Application) : AndroidViewModel(app) {
         val home = Parse.homeComponent(tv.shell(Commands.RESOLVE_HOME).output)
         val inventory = Parse.inventory(all, system, disabled, state.value.profile)
         val services = Parse.setting(tv.shell(Commands.settingsGet(SettingsNamespace.SECURE, A11Y_SERVICES)).output)
+        val homeVersion = if (Planner.CLEAN_HOME_PKG in all) {
+            Regex("versionName=([^\\s]+)").find(tv.shell("dumpsys package ${Planner.CLEAN_HOME_PKG}").output)?.groupValues?.get(1)
+        } else null
         val history = store.load(tvId)
         _state.update {
             it.copy(
@@ -118,6 +128,7 @@ class CleanViewModel(app: Application) : AndroidViewModel(app) {
                 history = history,
                 cleanHomeInstalled = Planner.CLEAN_HOME_PKG in all,
                 redirectOn = HomeRedirect.isOn(services),
+                tvHomeVersion = homeVersion,
                 selection = if (selectRecommended) Planner.recommended(inventory) else it.selection.filter { p -> p in all }.toSet(),
             )
         }

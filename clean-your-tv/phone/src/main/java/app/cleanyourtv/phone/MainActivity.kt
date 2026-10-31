@@ -200,6 +200,7 @@ private fun TvCard(state: UiState) {
             Text("${p.manufacturer} · ${p.device} · Android SDK ${p.sdk}", style = MaterialTheme.typography.bodySmall)
             Text("Profile: ${state.profile?.name ?: "generic (no exact match)"}", style = MaterialTheme.typography.bodySmall)
             Text("Home screen: ${state.homeComponent ?: "unknown"}", style = MaterialTheme.typography.bodySmall)
+            Text("Phone app version ${state.appVersion}", style = MaterialTheme.typography.bodySmall)
         }
     }
 }
@@ -320,6 +321,12 @@ private fun LookTab(state: UiState, vm: CleanViewModel, busy: Boolean) {
                     else -> {
                         val vendorLocked = state.profile?.homeSwitch == HomeSwitchPolicy.VENDOR_HOME_REDIRECT
                         Text("Clean Home is installed. It is in the apps row of your TV.")
+                        val tvV = state.tvHomeVersion ?: "unknown"
+                        Text(
+                            if (tvV == state.appVersion) "Clean Home on the TV is up to date (version $tvV)."
+                            else "Clean Home on the TV is version $tvV; this app has version ${state.appVersion}. Tap Update.",
+                            fontWeight = FontWeight.Medium,
+                        )
                         OutlinedButton(onClick = vm::openCleanHome, enabled = !busy, modifier = Modifier.fillMaxWidth()) { Text("Open it on the TV now") }
                         if (state.cleanHomeApkBundled) {
                             OutlinedButton(onClick = vm::installCleanHome, enabled = !busy, modifier = Modifier.fillMaxWidth()) {
