@@ -48,11 +48,12 @@ enum class HomeSwitchPolicy {
     ALLOWED,
 
     /**
-     * The vendor routes the Home key itself (Realtek key intercept on SCBC boards).
-     * The ad-free home can be installed and opened, and replacing the stock launcher
-     * is offered only as a trial that the user must confirm, with an automatic rollback.
+     * The vendor holds the Home key for the stock launcher (Realtek key intercept on SCBC boards).
+     * The stock launcher stays enabled as Android's Home, and Clean Home's accessibility service sends
+     * the viewer on to Clean Home whenever the stock home comes up (the "stock_home_redirect" approach
+     * from github.com/Gathin23/cleanyourtv). Replacing the stock launcher outright remains a trial.
      */
-    VENDOR_HOME_TRIAL,
+    VENDOR_HOME_REDIRECT,
 }
 
 /** A package as it is on the TV right now. */

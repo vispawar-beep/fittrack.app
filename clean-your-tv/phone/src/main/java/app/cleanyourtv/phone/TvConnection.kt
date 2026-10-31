@@ -43,9 +43,9 @@ class TvConnection(private val context: Context) {
         conn.shell(command)
     }
 
-    suspend fun install(apk: File) = withContext(Dispatchers.IO) {
+    suspend fun push(file: File, remotePath: String) = withContext(Dispatchers.IO) {
         val conn = dadb ?: error("Not connected to the TV")
-        conn.install(apk, "-r")
+        conn.push(file, remotePath, 420 /* 0644 */, System.currentTimeMillis())
     }
 
     fun close() {

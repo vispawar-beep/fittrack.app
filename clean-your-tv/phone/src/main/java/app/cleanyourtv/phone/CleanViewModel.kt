@@ -5,6 +5,8 @@ import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import app.cleanyourtv.core.Commands
 import app.cleanyourtv.core.DeviceProps
+import app.cleanyourtv.core.HomeRedirect
+import app.cleanyourtv.core.SettingChange
 import app.cleanyourtv.core.Parse
 import app.cleanyourtv.core.PackageView
 import app.cleanyourtv.core.PlanResult
@@ -38,6 +40,8 @@ data class UiState(
     val homeComponent: String? = null,
     val history: History = History(),
     val cleanHomeInstalled: Boolean = false,
+    /** Clean Home's Home redirect (accessibility service) is on. */
+    val redirectOn: Boolean = false,
     val cleanHomeApkBundled: Boolean = false,
     /** Seconds left before the Clean Home trial rolls back on its own; null when no trial is running. */
     val trialSecondsLeft: Int? = null,
@@ -104,6 +108,7 @@ class CleanViewModel(app: Application) : AndroidViewModel(app) {
         val disabled = Parse.packages(tv.shell(Commands.LIST_DISABLED).output)
         val home = Parse.homeComponent(tv.shell(Commands.RESOLVE_HOME).output)
         val inventory = Parse.inventory(all, system, disabled, state.value.profile)
+        val services = Parse.setting(tv.shell(Commands.settingsGet(SettingsNamespace.SECURE, A11Y_SERVICES)).output)
         val history = store.load(tvId)
         _state.update {
             it.copy(
@@ -112,6 +117,7 @@ class CleanViewModel(app: Application) : AndroidViewModel(app) {
                 homeComponent = home,
                 history = history,
                 cleanHomeInstalled = Planner.CLEAN_HOME_PKG in all,
+                redirectOn = HomeRedirect.isOn(services),
                 selection = if (selectRecommended) Planner.recommended(inventory) else it.selection.filter { p -> p in all }.toSet(),
             )
         }
@@ -188,17 +194,20 @@ class CleanViewModel(app: Application) : AndroidViewModel(app) {
 
     fun applyTweaks() = work("Speeding up") {
         for (tweak in Tweaks.all.filter { it.id in state.value.tweakSelection }) {
-            for (change in tweak.changes) {
-                val key = "${change.ns.cli}:${change.key}"
-                if (key !in store.load(tvId).savedSettings) {
-                    val old = Parse.setting(tv.shell(Commands.settingsGet(change.ns, change.key)).output)
-                    saveHistory { it.copy(savedSettings = it.savedSettings + (key to old)) }
-                }
-                exec(Step("${tweak.title}: ${change.key} = ${change.value}", Commands.settingsPut(change.ns, change.key, change.value), null))
-            }
+            for (change in tweak.changes) changeSetting(tweak.title, change)
             for (cmd in tweak.oneShot) exec(Step(tweak.title, cmd, null))
         }
         _state.update { it.copy(message = "Speed tweaks applied.") }
+    }
+
+    /** Saves the setting's value from before Clean Your TV first changed it, then changes it. */
+    private suspend fun changeSetting(title: String, change: SettingChange): Boolean {
+        val key = "${change.ns.cli}:${change.key}"
+        if (key !in store.load(tvId).savedSettings) {
+            val old = Parse.setting(tv.shell(Commands.settingsGet(change.ns, change.key)).output)
+            saveHistory { it.copy(savedSettings = it.savedSettings + (key to old)) }
+        }
+        return exec(Step("$title: ${change.key}", Commands.settingsPut(change.ns, change.key, change.value), null))
     }
 
     private suspend fun restoreSettings() {
@@ -225,13 +234,43 @@ class CleanViewModel(app: Application) : AndroidViewModel(app) {
                 file.outputStream().use { input.copyTo(it) }
             }
         }
-        tv.install(file)
+        // Streamed installs over Wi-Fi ADB fail silently on SCBC R2 boards, so push the APK first
+        // (finding from github.com/Gathin23/cleanyourtv, examples/sanyo-atv-r2).
+        tv.push(file, Commands.APK_TMP)
+        val out = tv.shell(Commands.INSTALL_PUSHED).allOutput
+        if (!out.contains("Success")) error("the TV refused Clean Home: ${out.trim()}")
         log("✓ Clean Home installed")
+        exec(Step("Optimise Clean Home for speed", Commands.compileSpeed(Planner.CLEAN_HOME_PKG), null))
         exec(Step("Open Clean Home", Commands.startActivity(Planner.CLEAN_HOME_COMPONENT), null))
     }
 
     fun openCleanHome() = work("Opening Clean Home") {
         exec(Step("Open Clean Home", Commands.startActivity(Planner.CLEAN_HOME_COMPONENT), null))
+    }
+
+    /**
+     * For TVs that lock Home to the stock launcher: keeps the stock launcher as Android's Home and turns
+     * on Clean Home's redirect service, which opens Clean Home whenever the stock home comes up.
+     * Other accessibility services stay on; Undo puts the previous values back.
+     */
+    fun enableHomeRedirect() = work("Sending the Home button to Clean Home") {
+        if (!state.value.cleanHomeInstalled) error("install Clean Home first")
+        val current = Parse.setting(tv.shell(Commands.settingsGet(SettingsNamespace.SECURE, A11Y_SERVICES)).output)
+        HomeRedirect.enableChanges(current).forEach { changeSetting("Home redirect", it) }
+        exec(Step("Open Clean Home", Commands.startActivity(Planner.CLEAN_HOME_COMPONENT), null))
+        _state.update { it.copy(message = "Done. Press Home on the remote: the stock home flashes briefly, then Clean Home opens.") }
+    }
+
+    fun disableHomeRedirect() = work("Giving the Home button back to the stock home") {
+        val current = Parse.setting(tv.shell(Commands.settingsGet(SettingsNamespace.SECURE, A11Y_SERVICES)).output)
+        exec(Step("Turn off the Home redirect", Commands.settingsPut(SettingsNamespace.SECURE, A11Y_SERVICES, HomeRedirect.withoutService(current)), null))
+        val saved = store.load(tvId).savedSettings
+        val enabledKey = "secure:accessibility_enabled"
+        if (enabledKey in saved) {
+            exec(Step("Restore accessibility_enabled", Commands.settingsPut(SettingsNamespace.SECURE, "accessibility_enabled", saved[enabledKey]), null))
+        }
+        saveHistory { it.copy(savedSettings = it.savedSettings - "secure:$A11Y_SERVICES" - enabledKey) }
+        exec(Step("Open the stock home", Commands.startHome(), null))
     }
 
     /**
@@ -328,5 +367,6 @@ class CleanViewModel(app: Application) : AndroidViewModel(app) {
     companion object {
         const val CLEAN_HOME_ASSET = "clean-home.apk"
         const val TRIAL_SECONDS = 60
+        const val A11Y_SERVICES = "enabled_accessibility_services"
     }
 }

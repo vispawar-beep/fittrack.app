@@ -16,6 +16,7 @@
         </intent>
         <package android:name="com.android.tv" />
         <package android:name="com.android.tv.settings" />
+        <package android:name="com.google.android.tvlauncher" />
     </queries>
 
     <application
@@ -44,5 +45,19 @@
                 <category android:name="android.intent.category.LAUNCHER" />
             </intent-filter>
         </activity>
+
+        <!-- Home redirect for TVs that lock Home to the stock launcher; see HomeRedirectService. -->
+        <service
+            android:name=".HomeRedirectService"
+            android:exported="true"
+            android:label="@string/redirect_name"
+            android:permission="android.permission.BIND_ACCESSIBILITY_SERVICE">
+            <intent-filter>
+                <action android:name="android.accessibilityservice.AccessibilityService" />
+            </intent-filter>
+            <meta-data
+                android:name="android.accessibilityservice"
+                android:resource="@xml/home_redirect" />
+        </service>
     </application>
 </manifest>

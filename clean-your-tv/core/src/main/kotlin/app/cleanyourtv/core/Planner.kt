@@ -74,3 +74,28 @@ object Planner {
         Step("Open the stock home", Commands.startHome(), null),
     )
 }
+
+/**
+ * Home redirect for TVs whose vendor holds the Home key: Clean Home's accessibility service
+ * opens Clean Home whenever the stock home comes to the front. Enabling it only appends the
+ * service to the TV's list, so other accessibility services (e.g. TalkBack) keep running.
+ */
+object HomeRedirect {
+    const val SERVICE = "app.cleanyourtv.home/app.cleanyourtv.home.HomeRedirectService"
+
+    fun withService(existing: String?): String =
+        (servicesIn(existing).filter { it != SERVICE } + SERVICE).joinToString(":")
+
+    fun withoutService(existing: String?): String? =
+        servicesIn(existing).filter { it != SERVICE }.joinToString(":").ifEmpty { null }
+
+    fun isOn(existing: String?) = SERVICE in servicesIn(existing)
+
+    private fun servicesIn(value: String?): List<String> =
+        value.orEmpty().split(':').map { it.trim() }.filter { it.isNotEmpty() && it != "null" }
+
+    fun enableChanges(existing: String?): List<SettingChange> = listOf(
+        SettingChange(SettingsNamespace.SECURE, "enabled_accessibility_services", withService(existing)),
+        SettingChange(SettingsNamespace.SECURE, "accessibility_enabled", "1"),
+    )
+}

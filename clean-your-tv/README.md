@@ -27,33 +27,44 @@ the generic rules.
   (`com.realtek.keyinterceptserver`, `com.apps.bluetoothremote`), Wi-Fi, Play Store,
   Play services, the keyboard, firmware updates and the setup wizard. Any system app
   the catalog doesn't know is also protected.
-- **The home screen change is a 60-second trial.** On your TV the report shows
-  `Home switch: blocked VENDOR_HOME`, because Realtek's key service handles the Home
-  key. The app makes Clean Home the home screen and asks you to press Home. If Clean
-  Home doesn't open, or you don't answer within 60 seconds, the stock home comes back.
+- **The Home button is redirected, not taken over.** Your TV report shows
+  `Home switch: blocked VENDOR_HOME`, because Realtek's key service locks the Home key
+  to the stock home. So the stock home stays enabled. Clean Home's small accessibility
+  service sees the stock home come up and opens Clean Home straight away. It listens
+  only to the stock home's window changes and filters no keys, so volume, Netflix,
+  YouTube and Inputs keys behave as before. Undo switches it off. Replacing the stock
+  home outright is still offered as a 60-second trial with automatic rollback.
 
 ## What it turns off on your Nokia R2
 
-**Recommended (selected for you): ads and bloatware**
+These ratings follow the lists tested on two TVs with the same SCBC R2 Realtek board,
+[SANYO ATV R2](https://github.com/Gathin23/cleanyourtv/tree/main/examples/sanyo-atv-r2) and
+[Compac ATV R2](https://github.com/Gathin23/cleanyourtv/tree/main/examples/compac-atv-r2),
+in the [CleanYourTV](https://github.com/Gathin23/cleanyourtv) project.
+
+**Recommended (selected for you): ads, telemetry and bloatware**
 
 | App | Why |
 |---|---|
 | `com.google.android.tvrecommendations` | Sponsored and "recommended" rows on the home screen |
+| `com.apps.channels` | "S-Channel" promoted content rows (not the TV tuner: antenna channels stay in Live TV) |
 | `com.google.android.videos` | Google TV / Play Movies promotions row |
-| `com.realtek.leanbacklauncher.partnercustomizer` | Adds the manufacturer's promoted apps and channels to the home screen |
-| `android.autoinstalls.config.scbc.device` | Silently reinstalls partner apps after updates |
+| `com.apps.function.gdpr` | SCBC data-consent agent |
+| `android.autoinstalls.config.scbc.device` | Silently installs partner apps after updates |
 | `com.vewd.core.service` | Vewd/Opera TV web engine running in the background |
-| `com.creative.fastscreen.tv` | Vendor screen mirroring (Chromecast does the same job) |
-| `com.apps.eshow`, `com.apps.esticker` | Shop demo mode and demo banner overlay |
-| `com.apps.networkspeed` | Vendor speed test |
-| `com.google.android.youtube.tvmusic`, `com.google.android.play.games` | Rarely used apps that also put promoted rows on the home screen |
+| `com.apps.eshow` | E-SHOW shop demo mode |
+| `com.apps.clear` | "TV Booster" cleaner running in the background |
+| `com.apps.networkspeed`, `com.google.android.apps.nbu.smartconnect.tv` | Vendor speed test, Google phone-connect helper |
+| `com.google.android.youtube.tvmusic`, `com.google.android.play.games` | Rarely used apps that also add promoted rows to the home screen |
 | `com.google.android.feedback`, `com.google.android.onetimeinitializer`, `com.android.printspooler`, `com.android.wallpaper.livepicker`, `com.android.hotspot2.osulogin`, `com.android.dynsystem` | Background services that do nothing on a TV |
 
 **Your choice (not selected):** YouTube, Netflix, Prime Video, Chromecast built-in,
-Ambient screensaver, Gallery, USB media player, Wi-Fi hotspot, TalkBack, text-to-speech.
+FastCast mirroring, Ambient screensaver, Gallery, USB media player, Wi-Fi hotspot, world
+clock, show-sticker overlay, TalkBack, text-to-speech.
 
 **Advanced (not selected; the app shows what you lose):** Google Assistant/voice
-search, sleep timer, vendor privacy notice, vendor cleaner, firmware updater.
+search, `com.realtek.leanbacklauncher.partnercustomizer` (it also supplies the stock
+home's Inputs button), firmware updater.
 
 ## Speed tweaks
 
@@ -84,11 +95,17 @@ Run the tests with `gradle :core:test`.
    **Connect**. On the TV, tick **Always allow** and press OK.
 3. **Clean tab:** **Recommended** is pre-selected. Tap **Turn off**, then restart the TV.
 4. **Speed tab:** tap **Speed up my TV**.
-5. **Look tab:** tap **Install Clean Home**, then **Make it my home screen (60 s
-   trial)**, press Home on the remote, and answer the question. If the Nokia Home key
-   stays locked to the stock home, keep Clean Home as an app. The stock home will
-   already be free of sponsored rows after step 3.
+5. **Look tab:** tap **Install Clean Home**, then **Make the Home button open Clean
+   Home**. Press Home on the remote: the stock home flashes for a moment, then Clean
+   Home opens.
 6. **Undo tab:** turn individual apps back on, or undo everything.
 7. **Report** (top bar): shares a text report of the TV and what was changed.
 
 When you're done, you can turn USB debugging off again. The changes stay.
+
+## Credits
+
+The package ratings for the SCBC R2 board, the Home redirect approach (`stock_home_redirect`)
+and the push-then-install workaround come from
+[Gathin23/cleanyourtv](https://github.com/Gathin23/cleanyourtv) (MIT licence). This project
+uses those findings but none of its code.

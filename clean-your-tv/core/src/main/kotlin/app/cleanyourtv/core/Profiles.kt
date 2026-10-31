@@ -22,11 +22,12 @@ object Profiles {
     val NOKIA_SCBC_R2 = TvProfile(
         id = "nokia-scbc-r2",
         name = "Nokia Smart TV (SCBC ATV R2, Android TV 11)",
-        homeSwitch = HomeSwitchPolicy.VENDOR_HOME_TRIAL,
+        homeSwitch = HomeSwitchPolicy.VENDOR_HOME_REDIRECT,
         notes = listOf(
-            "The Home key is handled by Realtek's key intercept service. Clean Home can be tried as the " +
-                "home screen; if the Home key still opens the stock home, Clean Your TV puts it back.",
-            "Antenna/cable tuners, HDMI inputs, the Bluetooth remote and firmware updates are protected.",
+            "The Home key is held for the stock home by Realtek's key service, so Clean Home takes over with the " +
+                "Home redirect: the stock home stays installed and sends you straight on to Clean Home.",
+            "Same SCBC R2 board as the SANYO and Compac ATV R2 lists in github.com/Gathin23/cleanyourtv.",
+            "Tuners, HDMI inputs, the Bluetooth remote, remote keys and firmware updates are protected.",
         ),
         matcher = { p ->
             p.manufacturer.equals("SCBC", ignoreCase = true) &&
@@ -38,7 +39,7 @@ object Profiles {
     val SCBC_GENERIC = TvProfile(
         id = "scbc-realtek",
         name = "SCBC / Realtek Android TV",
-        homeSwitch = HomeSwitchPolicy.VENDOR_HOME_TRIAL,
+        homeSwitch = HomeSwitchPolicy.VENDOR_HOME_REDIRECT,
         matcher = { p -> p.manufacturer.equals("SCBC", ignoreCase = true) },
     )
 

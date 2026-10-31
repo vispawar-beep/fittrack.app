@@ -2,6 +2,7 @@ package app.cleanyourtv.core
 
 import kotlin.test.Test
 import kotlin.test.assertEquals
+import kotlin.test.assertFailsWith
 import kotlin.test.assertFalse
 import kotlin.test.assertIs
 import kotlin.test.assertNotNull
@@ -73,17 +74,20 @@ class NokiaR2ReportTest {
 
     @Test fun matchesNokiaProfile() {
         assertEquals(Profiles.NOKIA_SCBC_R2, profile)
-        assertEquals(HomeSwitchPolicy.VENDOR_HOME_TRIAL, profile!!.homeSwitch)
+        assertEquals(HomeSwitchPolicy.VENDOR_HOME_REDIRECT, profile!!.homeSwitch)
         assertEquals(30, props.sdk)
     }
 
     @Test fun recommendedSelectionRemovesAdSources() {
         val rec = Planner.recommended(inventory)
         for (pkg in listOf(
-            "com.google.android.tvrecommendations", "com.google.android.videos",
-            "com.realtek.leanbacklauncher.partnercustomizer", "com.vewd.core.service",
-            "android.autoinstalls.config.scbc.device", "com.apps.eshow", "com.apps.esticker",
+            "com.google.android.tvrecommendations", "com.google.android.videos", "com.apps.channels",
+            "com.apps.function.gdpr", "com.vewd.core.service", "android.autoinstalls.config.scbc.device",
+            "com.apps.eshow", "com.apps.clear", "com.google.android.apps.nbu.smartconnect.tv",
         )) assertTrue(pkg in rec, "$pkg should be recommended")
+        // Kept on the SANYO/Compac R2 lists: the stock home's Inputs button and Miracast.
+        for (pkg in listOf("com.realtek.leanbacklauncher.partnercustomizer", "com.creative.fastscreen.tv", "com.apps.esticker"))
+            assertFalse(pkg in rec, "$pkg should not be preselected")
         // Streaming apps and features the user may want are never preselected.
         for (pkg in listOf("com.netflix.ninja", "com.google.android.youtube.tv", "com.amazon.amazonvideo.livingroom",
             "com.google.android.apps.mediashell", "com.google.android.katniss", "com.example.userapp"))
@@ -134,7 +138,21 @@ class NokiaR2ReportTest {
         assertEquals("cmd package set-home-activity --user 0 app.cleanyourtv.home/.HomeActivity", ok.steps.first().command)
     }
 
+    @Test fun homeRedirectKeepsOtherServices() {
+        val talkback = "com.google.android.marvin.talkback/com.google.android.marvin.talkback.TalkBackService"
+        assertEquals(HomeRedirect.SERVICE, HomeRedirect.withService(null))
+        assertEquals(HomeRedirect.SERVICE, HomeRedirect.withService("null"))
+        assertEquals("$talkback:${HomeRedirect.SERVICE}", HomeRedirect.withService(talkback))
+        assertEquals("$talkback:${HomeRedirect.SERVICE}", HomeRedirect.withService("$talkback:${HomeRedirect.SERVICE}"))
+        assertEquals(talkback, HomeRedirect.withoutService("$talkback:${HomeRedirect.SERVICE}"))
+        assertEquals(null, HomeRedirect.withoutService(HomeRedirect.SERVICE))
+        val change = HomeRedirect.enableChanges(talkback).first()
+        assertEquals("settings put secure enabled_accessibility_services '$talkback:${HomeRedirect.SERVICE}'",
+            Commands.settingsPut(change.ns, change.key, change.value))
+    }
+
     @Test fun commandsRejectInjection() {
+        assertFailsWith<IllegalArgumentException> { Commands.settingsPut(SettingsNamespace.GLOBAL, "x", "1'; reboot; '") }
         assertFalse(Commands.isValidPackage("com.x; reboot"))
         assertFalse(Commands.isValidPackage("com.x\nreboot"))
         assertEquals(setOf("com.a.b"), Parse.packages("package:com.a.b\npackage:bad;rm -rf\njunk"))

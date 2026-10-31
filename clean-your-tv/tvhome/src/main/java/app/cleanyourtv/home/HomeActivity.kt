@@ -118,9 +118,12 @@ class HomeActivity : Activity() {
         super.onPause()
     }
 
-    /** When Clean Home is the home screen, Back does nothing, like the stock home. */
+    /**
+     * When Clean Home is the home screen, or stands in for it through the Home redirect, Back does
+     * nothing, like the stock home.
+     */
     override fun onKeyDown(keyCode: Int, event: KeyEvent): Boolean {
-        if (keyCode == KeyEvent.KEYCODE_BACK && isDefaultHome()) return true
+        if (keyCode == KeyEvent.KEYCODE_BACK && (isDefaultHome() || HomeRedirectService.isEnabled(this))) return true
         return super.onKeyDown(keyCode, event)
     }
 

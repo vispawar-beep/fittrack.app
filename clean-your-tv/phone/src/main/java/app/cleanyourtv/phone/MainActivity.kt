@@ -301,7 +301,7 @@ private fun LookTab(state: UiState, vm: CleanViewModel, busy: Boolean) {
         Text("Ad-free home screen", style = MaterialTheme.typography.titleMedium)
         Text(
             "Step 1 — the Clean tab with \"Recommended\" turns off the services that put sponsored rows, " +
-                "movie promotions and partner apps on the stock home screen.",
+                "S-Channel promo rows and movie promotions on the stock home screen.",
         )
         Text(
             "Step 2 — Clean Home is a fast home screen with no ads, no recommendations and no tracking: " +
@@ -318,12 +318,31 @@ private fun LookTab(state: UiState, vm: CleanViewModel, busy: Boolean) {
                         Text("Install Clean Home on the TV")
                     }
                     else -> {
+                        val vendorLocked = state.profile?.homeSwitch == HomeSwitchPolicy.VENDOR_HOME_REDIRECT
                         Text("Clean Home is installed. It is in the apps row of your TV.")
                         OutlinedButton(onClick = vm::openCleanHome, enabled = !busy, modifier = Modifier.fillMaxWidth()) { Text("Open it on the TV now") }
-                        if (state.history.cleanHomeActive) {
-                            Text("Clean Home is your home screen.")
-                        } else {
-                            Button(onClick = vm::startCleanHomeTrial, enabled = !busy, modifier = Modifier.fillMaxWidth()) {
+                        when {
+                            state.redirectOn -> {
+                                Text("The Home button opens Clean Home.", fontWeight = FontWeight.Medium)
+                                OutlinedButton(onClick = vm::disableHomeRedirect, enabled = !busy, modifier = Modifier.fillMaxWidth()) {
+                                    Text("Give Home back to the stock home")
+                                }
+                            }
+                            state.history.cleanHomeActive -> Text("Clean Home is your home screen.")
+                            vendorLocked -> {
+                                Button(onClick = vm::enableHomeRedirect, enabled = !busy, modifier = Modifier.fillMaxWidth()) {
+                                    Text("Make the Home button open Clean Home")
+                                }
+                                Text(
+                                    "Recommended for your TV. The stock home stays installed and sends you straight on to " +
+                                        "Clean Home, so the remote's Netflix, YouTube and Inputs keys keep working.",
+                                    style = MaterialTheme.typography.bodySmall,
+                                )
+                                TextButton(onClick = vm::startCleanHomeTrial, enabled = !busy) {
+                                    Text("Or try replacing the stock home (60 s trial)")
+                                }
+                            }
+                            else -> Button(onClick = vm::startCleanHomeTrial, enabled = !busy, modifier = Modifier.fillMaxWidth()) {
                                 Text("Make it my home screen (60 s trial)")
                             }
                         }
@@ -331,11 +350,11 @@ private fun LookTab(state: UiState, vm: CleanViewModel, busy: Boolean) {
                 }
             }
         }
-        if (state.profile?.homeSwitch == HomeSwitchPolicy.VENDOR_HOME_TRIAL) {
+        if (state.profile?.homeSwitch == HomeSwitchPolicy.VENDOR_HOME_REDIRECT) {
             Text(
-                "On your ${state.props?.brand ?: "TV"}, the Home key is handled by the manufacturer's key service, so " +
-                    "replacing the home screen may not stick. The trial turns off the stock home, asks you to press Home, " +
-                    "and puts everything back if Clean Home does not open or you do not answer within 60 seconds.",
+                "On your ${state.props?.brand ?: "TV"}, the manufacturer's key service locks the Home key to the stock home. " +
+                    "The Home redirect works around that without disabling anything. The 60 s trial instead turns the stock " +
+                    "home off, and puts it back if Clean Home doesn't open or you don't answer.",
                 style = MaterialTheme.typography.bodySmall,
             )
         }

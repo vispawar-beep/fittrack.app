@@ -39,6 +39,12 @@ object Catalog {
             "TVs do not show a wallpaper picker."),
         safe("com.android.hotspot2.osulogin", "Passpoint sign-up", Category.BLOAT,
             "Hotspot 2.0 sign-up for carrier Wi-Fi; home Wi-Fi does not use it."),
+        safe("com.google.android.tv.bugreportsender", "Bug report sender", Category.BLOAT,
+            "Uploads bug reports to Google."),
+        safe("com.google.android.leanbacklauncher.recommendations", "Legacy recommendations", Category.ADS,
+            "Recommendation rows for the older Android TV home."),
+        safe("com.google.android.apps.nbu.smartconnect.tv", "Smart Connect", Category.BLOAT,
+            "Google phone-to-TV helper that runs in the background; disabled on the SANYO and Compac R2 lists."),
         safe("com.android.dynsystem", "Dynamic system updates", Category.BLOAT,
             "Developer tool for test system images."),
 
@@ -52,8 +58,6 @@ object Catalog {
         optional("com.android.gallery3d", "Gallery", Category.EXTRAS, "Photo viewer; the USB media player can also show photos."),
         optional("com.google.android.marvin.talkback", "TalkBack", Category.EXTRAS, "Screen reader. Keep it if anyone in the home needs it."),
         optional("com.google.android.tts", "Google text-to-speech", Category.EXTRAS, "Needed by TalkBack and some accessibility features."),
-        optional("com.google.android.apps.nbu.smartconnect.tv", "Smart Connect", Category.EXTRAS,
-            "Google helper for connecting phones to the TV; casting still works through Chromecast built-in."),
 
         advanced("com.google.android.katniss", "Google Assistant / voice search", Category.EXTRAS,
             "Disabling stops the remote's microphone key and voice search."),
@@ -81,26 +85,35 @@ object Catalog {
         protect("android", "Android system", "Core Android component."),
     )
 
-    /** SCBC / Realtek boards: Nokia, and other brands built by SCBC. */
+    /**
+     * SCBC / Realtek boards (Nokia, SANYO, Compac and other SCBC brands). Ratings follow the lists
+     * tested on the same R2 board in github.com/Gathin23/cleanyourtv (examples/sanyo-atv-r2,
+     * examples/compac-atv-r2).
+     */
     val scbcRealtek: List<PackageRule> = listOf(
+        safe("com.apps.channels", "S-Channel content rows", Category.ADS,
+            "SCBC's promoted content rows on the home screen. Not the TV tuner: antenna channels stay in Live TV."),
+        safe("com.apps.function.gdpr", "SCBC data-consent agent", Category.ADS,
+            "Manufacturer's data-collection consent agent."),
         safe("com.vewd.core.service", "Vewd (Opera TV) core", Category.ADS,
             "Vendor web engine for the Vewd app store and HbbTV overlays; runs in the background."),
-        safe("com.realtek.leanbacklauncher.partnercustomizer", "Partner home customizer", Category.ADS,
-            "Injects the manufacturer's promoted apps and channels into the home screen."),
         safe("android.autoinstalls.config.scbc.device", "SCBC auto-installer config", Category.ADS,
-            "Tells Android to silently install partner apps after updates."),
-        safe("com.apps.eshow", "Store demo (eShow)", Category.BLOAT, "Retail shop demo mode."),
-        safe("com.apps.esticker", "Store sticker overlay", Category.BLOAT, "Retail shop feature banner overlay."),
+            "Tells Play to silently install partner apps after updates."),
+        safe("com.apps.eshow", "E-SHOW store demo", Category.BLOAT, "Retail shop demo and promo mode."),
+        safe("com.apps.clear", "TV Booster", Category.BLOAT,
+            "Vendor memory cleaner running in the background. Clean Your TV's speed tools replace it."),
         safe("com.apps.networkspeed", "Network speed test", Category.BLOAT, "Vendor speed test app."),
-        safe("com.creative.fastscreen.tv", "FastScreen mirroring", Category.BLOAT,
-            "Vendor screen mirroring that runs in the background. Chromecast built-in does the same job."),
 
+        optional("com.creative.fastscreen.tv", "FastCast (Miracast mirroring)", Category.EXTRAS,
+            "Screen mirroring from phones and laptops. Kept on the SANYO and Compac lists; turn off only if you never mirror."),
+        optional("com.apps.esticker", "Show sticker overlay", Category.EXTRAS,
+            "Likely the shop-demo feature stickers; left alone on the Compac list because its role is unclear."),
+        optional("com.apps.timeclock", "World clock", Category.EXTRAS, "Vendor world-clock app."),
         optional("com.apps.usbmediaplayer", "USB media player", Category.EXTRAS, "Plays films and photos from a USB stick."),
         optional("com.apps.wifihotspot", "TV Wi-Fi hotspot", Category.EXTRAS, "Shares the TV's connection as a hotspot."),
 
-        advanced("com.apps.timeclock", "Sleep timer and clock", Category.EXTRAS, "Vendor sleep timer and on/off timer."),
-        advanced("com.apps.function.gdpr", "Vendor privacy consent", Category.EXTRAS, "Shows the manufacturer's privacy notice."),
-        advanced("com.apps.clear", "Vendor memory cleaner", Category.EXTRAS, "Vendor cleaner. Clean Your TV's speed tools replace it."),
+        advanced("com.realtek.leanbacklauncher.partnercustomizer", "Partner home customizer", Category.ADS,
+            "Adds partner apps to the stock home, but also supplies its Inputs button. Turn off only once Clean Home handles Home."),
         advanced("com.apps.ota", "Vendor firmware updater", Category.EXTRAS,
             "Disabling stops firmware updates, including security fixes. Not advised."),
 
@@ -111,7 +124,6 @@ object Catalog {
         protect("com.apps.virtualkey", "Virtual keys", "Handles remote keys."),
         protect("com.apps.sys", "Vendor system service", "Core vendor service."),
         protect("com.apps.authota", "Update authorisation", "Part of firmware updates."),
-        protect("com.apps.channels", "Channel list", "Antenna and cable channels."),
         protect("com.apps.puresound", "Sound processing", "Picture and sound settings use it."),
         protect("com.apps.function.audiolink", "Audio output link", "Speakers, soundbars and Bluetooth audio."),
         protect("com.apps.factory.ui", "Factory menu", "Service menu; changing it has no benefit."),

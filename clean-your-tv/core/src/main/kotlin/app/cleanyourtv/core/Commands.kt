@@ -9,7 +9,8 @@ object Commands {
     private val PKG = Regex("^[A-Za-z][A-Za-z0-9_]*(\\.[A-Za-z0-9_]+)+$")
     private val COMPONENT = Regex("^[A-Za-z][A-Za-z0-9_.]*/[A-Za-z0-9_.$]+$")
     private val SETTING_KEY = Regex("^[a-z0-9_]+$")
-    private val SETTING_VALUE = Regex("^[A-Za-z0-9_.\\-]+$")
+    /** Values are single-quoted in the command, so `$` and `:` (accessibility service lists) are safe. */
+    private val SETTING_VALUE = Regex("^[A-Za-z0-9_.\\-/:$]+$")
 
     fun isValidPackage(pkg: String) = PKG.matches(pkg)
 
@@ -32,6 +33,11 @@ object Commands {
     fun enable(pkg: String) = "pm enable --user 0 ${checkPkg(pkg)}"
     fun forceStop(pkg: String) = "am force-stop ${checkPkg(pkg)}"
 
+    /** Wi-Fi ADB streamed installs fail silently on SCBC R2 boards, so the APK is pushed first. */
+    const val APK_TMP = "/data/local/tmp/clean-home.apk"
+    const val INSTALL_PUSHED = "pm install -r $APK_TMP; rm -f $APK_TMP"
+    fun compileSpeed(pkg: String) = "cmd package compile -m speed -f ${checkPkg(pkg)}"
+
     fun setHome(component: String): String {
         require(COMPONENT.matches(component)) { "Invalid component: $component" }
         return "cmd package set-home-activity --user 0 $component"
@@ -53,7 +59,7 @@ object Commands {
         require(SETTING_KEY.matches(key))
         if (value == null) return "settings delete ${ns.cli} $key"
         require(SETTING_VALUE.matches(value)) { "Invalid setting value: $value" }
-        return "settings put ${ns.cli} $key $value"
+        return "settings put ${ns.cli} $key '$value'"
     }
 
     /** Output of `pm disable-user` on success, e.g. "Package x new state: disabled-user". */

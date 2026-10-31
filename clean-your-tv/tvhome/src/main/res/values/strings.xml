@@ -1,4 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
     <string name="app_name">Clean Home</string>
+    <string name="redirect_name">Clean Home: Home button</string>
+    <string name="redirect_description">Opens Clean Home when the TV shows its stock home screen, for TVs that lock the Home button to the stock home. It reads nothing on screen except which app is in front.</string>
 </resources>
