@@ -12,11 +12,24 @@ android {
         applicationId = "app.cleanyourtv.phone"
         minSdk = 26
         targetSdk = 35
-        versionCode = 1
-        versionName = "1.0.0"
+        versionCode = 2
+        versionName = "1.1.0"
+    }
+
+    // One fixed key for every build, so new builds install as updates (see signing/README.md).
+    signingConfigs {
+        create("shared") {
+            storeFile = rootProject.file("signing/clean-your-tv.keystore")
+            storePassword = "cleanyourtv"
+            keyAlias = "cleanyourtv"
+            keyPassword = "cleanyourtv"
+        }
     }
 
     buildTypes {
+        debug {
+            signingConfig = signingConfigs.getByName("shared")
+        }
         release {
             isMinifyEnabled = false
         }

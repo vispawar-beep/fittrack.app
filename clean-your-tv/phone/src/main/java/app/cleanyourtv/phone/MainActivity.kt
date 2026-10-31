@@ -321,6 +321,11 @@ private fun LookTab(state: UiState, vm: CleanViewModel, busy: Boolean) {
                         val vendorLocked = state.profile?.homeSwitch == HomeSwitchPolicy.VENDOR_HOME_REDIRECT
                         Text("Clean Home is installed. It is in the apps row of your TV.")
                         OutlinedButton(onClick = vm::openCleanHome, enabled = !busy, modifier = Modifier.fillMaxWidth()) { Text("Open it on the TV now") }
+                        if (state.cleanHomeApkBundled) {
+                            OutlinedButton(onClick = vm::installCleanHome, enabled = !busy, modifier = Modifier.fillMaxWidth()) {
+                                Text("Update Clean Home on the TV")
+                            }
+                        }
                         when {
                             state.redirectOn -> {
                                 Text("The Home button opens Clean Home.", fontWeight = FontWeight.Medium)

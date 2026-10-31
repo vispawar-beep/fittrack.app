@@ -227,7 +227,7 @@ class CleanViewModel(app: Application) : AndroidViewModel(app) {
     private fun bundledApkExists() =
         runCatching { getApplication<Application>().assets.open(CLEAN_HOME_ASSET).close(); true }.getOrDefault(false)
 
-    fun installCleanHome() = work("Installing Clean Home on the TV") {
+    fun installCleanHome() = work("Installing the latest Clean Home on the TV") {
         val file = File(getApplication<Application>().cacheDir, CLEAN_HOME_ASSET)
         withContext(Dispatchers.IO) {
             getApplication<Application>().assets.open(CLEAN_HOME_ASSET).use { input ->
@@ -237,9 +237,24 @@ class CleanViewModel(app: Application) : AndroidViewModel(app) {
         // Streamed installs over Wi-Fi ADB fail silently on SCBC R2 boards, so push the APK first
         // (finding from github.com/Gathin23/cleanyourtv, examples/sanyo-atv-r2).
         tv.push(file, Commands.APK_TMP)
-        val out = tv.shell(Commands.INSTALL_PUSHED).allOutput
+        var out = tv.shell(Commands.INSTALL_PUSHED).allOutput
+        if (!out.contains("Success") && (out.contains("UPDATE_INCOMPATIBLE") || out.contains("signatures do not match"))) {
+            // Clean Home from an older build was signed with a different key, and Android won't update
+            // across keys. Remove it (only its hidden-apps list and weather city are lost) and install fresh.
+            log("Old Clean Home has a different signature; replacing it")
+            exec(Step("Remove the old Clean Home", "pm uninstall ${Planner.CLEAN_HOME_PKG}", null))
+            tv.push(file, Commands.APK_TMP)
+            out = tv.shell(Commands.INSTALL_PUSHED).allOutput
+        }
         if (!out.contains("Success")) error("the TV refused Clean Home: ${out.trim()}")
         log("✓ Clean Home installed")
+        // A reinstall unbinds the Home redirect service; set it again so Android binds the new copy.
+        val services = Parse.setting(tv.shell(Commands.settingsGet(SettingsNamespace.SECURE, A11Y_SERVICES)).output)
+        if (HomeRedirect.isOn(services)) {
+            exec(Step("Reconnect the Home redirect", Commands.settingsPut(SettingsNamespace.SECURE, A11Y_SERVICES, HomeRedirect.withoutService(services)), null))
+            exec(Step("Reconnect the Home redirect", Commands.settingsPut(SettingsNamespace.SECURE, A11Y_SERVICES, HomeRedirect.withService(services)), null))
+            exec(Step("Accessibility on", Commands.settingsPut(SettingsNamespace.SECURE, "accessibility_enabled", "1"), null))
+        }
         exec(Step("Optimise Clean Home for speed", Commands.compileSpeed(Planner.CLEAN_HOME_PKG), null))
         exec(Step("Open Clean Home", Commands.startActivity(Planner.CLEAN_HOME_COMPONENT), null))
     }
