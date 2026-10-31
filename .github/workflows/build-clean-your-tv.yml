@@ -34,17 +34,37 @@ jobs:
         with:
           gradle-version: "8.14.3"
 
+      # Same signing key on every build, so new APKs install as updates (see clean-your-tv/signing/README.md).
+      - name: Use your own signing key, if you added one as a secret
+        env:
+          CYT_KEYSTORE_BASE64: ${{ secrets.CYT_KEYSTORE_BASE64 }}
+        run: |
+          if [ -n "$CYT_KEYSTORE_BASE64" ]; then
+            printf '%s' "$CYT_KEYSTORE_BASE64" | base64 -d > signing/clean-your-tv.keystore
+            echo "Signing with the CYT_KEYSTORE_BASE64 key."
+          fi
+
+      - name: Otherwise keep the debug key between builds
+        uses: actions/cache@v4
+        with:
+          path: ~/.android/debug.keystore
+          key: clean-your-tv-debug-keystore
+
       - name: Test the TV profile and safety rules
         run: gradle --no-daemon :core:test
 
       - name: Build Clean Home (TV)
         run: gradle --no-daemon :tvhome:assembleDebug
+        env:
+          CYT_KEYSTORE_PASSWORD: ${{ secrets.CYT_KEYSTORE_PASSWORD }}
 
       - name: Bundle Clean Home inside the phone app
         run: cp tvhome/build/outputs/apk/debug/tvhome-debug.apk phone/src/main/assets/clean-home.apk
 
       - name: Build Clean Your TV (phone)
         run: gradle --no-daemon :phone:assembleDebug
+        env:
+          CYT_KEYSTORE_PASSWORD: ${{ secrets.CYT_KEYSTORE_PASSWORD }}
 
       - name: Name the APKs
         run: |

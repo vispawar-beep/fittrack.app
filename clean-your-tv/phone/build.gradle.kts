@@ -16,19 +16,21 @@ android {
         versionName = "1.1.0"
     }
 
-    // One fixed key for every build, so new builds install as updates (see signing/README.md).
+    // Optional fixed signing key (see signing/README.md). Never committed; without it the build uses
+    // the standard debug key, which CI keeps between runs.
+    val sharedKey = rootProject.file("signing/clean-your-tv.keystore")
     signingConfigs {
         create("shared") {
-            storeFile = rootProject.file("signing/clean-your-tv.keystore")
-            storePassword = "cleanyourtv"
+            storeFile = sharedKey
+            storePassword = providers.environmentVariable("CYT_KEYSTORE_PASSWORD").orNull ?: "cleanyourtv"
             keyAlias = "cleanyourtv"
-            keyPassword = "cleanyourtv"
+            keyPassword = providers.environmentVariable("CYT_KEYSTORE_PASSWORD").orNull ?: "cleanyourtv"
         }
     }
 
     buildTypes {
         debug {
-            signingConfig = signingConfigs.getByName("shared")
+            if (sharedKey.exists()) signingConfig = signingConfigs.getByName("shared")
         }
         release {
             isMinifyEnabled = false
