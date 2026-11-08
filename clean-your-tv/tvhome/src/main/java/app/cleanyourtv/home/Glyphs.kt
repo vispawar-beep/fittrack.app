@@ -13,7 +13,7 @@ import android.graphics.drawable.Drawable
  * Simple line-and-fill symbols in an iOS-like style, drawn in code so they stay sharp at any size.
  * They are original drawings, not Apple's icons or SF Symbols.
  */
-enum class GlyphKind { TV, WIFI, GEAR, SUN, MOON, CLOUD, CLOUD_SUN, CLOUD_MOON, RAIN, SNOW, THUNDER, FOG }
+enum class GlyphKind { PALETTE, TV, WIFI, GEAR, SUN, MOON, CLOUD, CLOUD_SUN, CLOUD_MOON, RAIN, SNOW, THUNDER, FOG }
 
 class Glyph(private val kind: GlyphKind, private val color: Int = Color.WHITE) : Drawable() {
     private val stroke = Paint(Paint.ANTI_ALIAS_FLAG).apply {
@@ -36,6 +36,7 @@ class Glyph(private val kind: GlyphKind, private val color: Int = Color.WHITE) :
         stroke.strokeWidth = 7f
         fill.color = color
         when (kind) {
+            GlyphKind.PALETTE -> palette(canvas)
             GlyphKind.TV -> tv(canvas)
             GlyphKind.WIFI -> wifi(canvas)
             GlyphKind.GEAR -> gear(canvas)
@@ -50,6 +51,23 @@ class Glyph(private val kind: GlyphKind, private val color: Int = Color.WHITE) :
             GlyphKind.FOG -> fog(canvas)
         }
         canvas.restore()
+    }
+
+    private fun palette(c: Canvas) {
+        // An artist's palette: a rounded blob with a thumb hole and four paint dots.
+        val p = Path().apply {
+            addCircle(50f, 50f, 38f, Path.Direction.CW)
+            val hole = Path().apply { addCircle(62f, 66f, 9f, Path.Direction.CW) }
+            op(hole, Path.Op.DIFFERENCE)
+        }
+        fill.color = color
+        c.drawPath(p, fill)
+        val dots = listOf(
+            Triple(32f, 40f, Color.rgb(255, 69, 58)), Triple(48f, 28f, Color.rgb(255, 214, 10)),
+            Triple(66f, 36f, Color.rgb(48, 209, 88)), Triple(32f, 60f, Color.rgb(10, 132, 255)),
+        )
+        for ((x, y, col) in dots) { fill.color = col; c.drawCircle(x, y, 7.5f, fill) }
+        fill.color = color
     }
 
     private fun tv(c: Canvas) {

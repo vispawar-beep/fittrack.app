@@ -45,6 +45,14 @@ object Commands {
 
     fun startHome() = "am start -a android.intent.action.MAIN -c android.intent.category.HOME"
 
+    private val SKIN_ID = Regex("^[a-z]{1,20}$")
+
+    /** Opens Clean Home in the given skin (crystal, midnight, aurora, sunset). */
+    fun openCleanHomeWithSkin(skinId: String): String {
+        require(SKIN_ID.matches(skinId)) { "Invalid skin: $skinId" }
+        return "am start -n app.cleanyourtv.home/.HomeActivity --es skin $skinId"
+    }
+
     fun startActivity(component: String): String {
         require(COMPONENT.matches(component)) { "Invalid component: $component" }
         return "am start -n $component"

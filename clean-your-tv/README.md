@@ -66,19 +66,34 @@ clock, show-sticker overlay, TalkBack, text-to-speech.
 search, `com.realtek.leanbacklauncher.partnercustomizer` (it also supplies the stock
 home's Inputs button), firmware updater.
 
-## Clean Home: the crystal look
+## Clean Home
 
-- **Time and date:** a large, thin clock with the date underneath, top left.
-- **Weather:** a frosted-glass card, top right. Select it with the remote and press OK to
-  enter your city (e.g. Pune). It shows the temperature, conditions and today's high/low,
-  and updates every 30 minutes while the home screen is on screen. Data comes from
-  [Open-Meteo](https://open-meteo.com): free, with no account, API key or tracking.
-- **Icons:** each app's own icon in an iOS-style rounded glass square with a top shine.
-  The dock uses original iOS-style symbols. Apple's own icons and SF Symbols are not
-  included, because they're Apple's copyrighted artwork.
+**Themes:** Crystal (frosted glass over a night sky), Midnight (pure black), Aurora (green and
+violet northern lights) and Sunset (saffron and rose). Pick one with **Themes** in the TV's dock
+or in the phone app's Look tab. The choice is saved on the TV.
+
+- **Apps:** shown as Android TV style landscape cards, using each app's TV banner. Apps without a
+  banner get a glass card with their icon and name.
+- **Time, date and weather:** a large clock with the date, plus a glass weather card. Press OK on
+  the card to set your city. Weather comes from [Open-Meteo](https://open-meteo.com), which needs
+  no account, API key or tracking.
+- **Dock:** Live TV, Wi-Fi, Settings and Themes.
 - **Name:** "Avnish's TV" at the bottom. To change it:
   `adb shell am start -n app.cleanyourtv.home/.HomeActivity --es tv_name "New name"`.
-- Hold OK on an app to move it to the front, hide it or open its settings.
+- **App menu:** hold OK on an app to move it to the front, hide it or open its settings.
+
+### Staying clean after a restart
+
+**Make Clean Home permanent** in the Look tab does three things, and all of them survive restarts:
+
+1. Turns the stock Android TV home off with `pm disable-user`. The SANYO ATV R2, on the same board
+   as the Nokia, replaced its stock launcher this way.
+2. Sets Clean Home as the home screen.
+3. Turns on the **Home guard**, an accessibility service that Android starts again at every boot.
+   If the firmware ever brings the stock home back, the guard opens Clean Home.
+
+The TV then asks you to confirm. If you don't answer within 60 seconds, the stock home comes back.
+Everything stays this way until you tap **Restore the original Android TV home** or use **Undo**.
 
 ## Speed tweaks
 

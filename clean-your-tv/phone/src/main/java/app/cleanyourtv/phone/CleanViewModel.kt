@@ -270,6 +270,10 @@ class CleanViewModel(app: Application) : AndroidViewModel(app) {
         exec(Step("Open Clean Home", Commands.startActivity(Planner.CLEAN_HOME_COMPONENT), null))
     }
 
+    fun setSkin(skinId: String) = work("Changing the Clean Home theme") {
+        exec(Step("Theme: $skinId", Commands.openCleanHomeWithSkin(skinId), null))
+    }
+
     fun openCleanHome() = work("Opening Clean Home") {
         exec(Step("Open Clean Home", Commands.startActivity(Planner.CLEAN_HOME_COMPONENT), null))
     }
@@ -287,7 +291,12 @@ class CleanViewModel(app: Application) : AndroidViewModel(app) {
         _state.update { it.copy(message = "Done. Press Home on the remote: the stock home flashes briefly, then Clean Home opens.") }
     }
 
-    fun disableHomeRedirect() = work("Giving the Home button back to the stock home") {
+    /** Puts the original Android TV home back: stock launcher on and set as Home, Home guard off. */
+    fun disableHomeRedirect() = work("Restoring the original Android TV home") {
+        trialJob?.cancel()
+        _state.update { it.copy(trialSecondsLeft = null) }
+        Planner.restoreStockHome().forEach { exec(it) }
+        saveHistory { it.copy(cleanHomeActive = false, disabled = it.disabled - Planner.STOCK_HOME_PKG) }
         val current = Parse.setting(tv.shell(Commands.settingsGet(SettingsNamespace.SECURE, A11Y_SERVICES)).output)
         exec(Step("Turn off the Home redirect", Commands.settingsPut(SettingsNamespace.SECURE, A11Y_SERVICES, HomeRedirect.withoutService(current)), null))
         val saved = store.load(tvId).savedSettings
@@ -303,8 +312,17 @@ class CleanViewModel(app: Application) : AndroidViewModel(app) {
      * Makes Clean Home the home screen, then waits for the user to press Home on the
      * remote and confirm. With no confirmation in [TRIAL_SECONDS], the stock home comes back.
      */
-    fun startCleanHomeTrial() = work("Trying Clean Home as the home screen") {
+    /**
+     * Makes Clean Home the permanent home screen: the Home guard (accessibility service) on, Clean Home
+     * set as Home, and the stock launcher turned off. All of it survives restarts until Undo. The user then
+     * confirms on the TV within [TRIAL_SECONDS], or the stock home comes back by itself.
+     */
+    fun startCleanHomeTrial() = work("Making Clean Home the permanent home screen") {
         val installed = state.value.inventory.map { it.pkg }.toSet()
+        if (Planner.CLEAN_HOME_PKG in installed) {
+            val current = Parse.setting(tv.shell(Commands.settingsGet(SettingsNamespace.SECURE, A11Y_SERVICES)).output)
+            HomeRedirect.enableChanges(current).forEach { changeSetting("Home guard", it) }
+        }
         when (val plan = Planner.cleanHomePlan(installed, state.value.profile)) {
             is PlanResult.Refused -> _state.update { it.copy(message = plan.reasons.joinToString("\n")) }
             is PlanResult.Ok -> {
@@ -340,7 +358,7 @@ class CleanViewModel(app: Application) : AndroidViewModel(app) {
     fun rejectCleanHome() {
         trialJob?.cancel()
         _state.update { it.copy(trialSecondsLeft = null) }
-        rollbackHomeNow("The stock home is back. Your TV's Home key is locked to it, so open Clean Home from the apps row instead.")
+        rollbackHomeNow("The stock home is back. The Home guard stays on, so Home still leads to Clean Home.")
     }
 
     private fun rollbackHomeNow(message: String) {

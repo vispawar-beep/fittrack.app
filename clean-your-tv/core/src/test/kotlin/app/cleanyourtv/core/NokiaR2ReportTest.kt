@@ -151,6 +151,11 @@ class NokiaR2ReportTest {
             Commands.settingsPut(change.ns, change.key, change.value))
     }
 
+    @Test fun skinCommand() {
+        assertEquals("am start -n app.cleanyourtv.home/.HomeActivity --es skin aurora", Commands.openCleanHomeWithSkin("aurora"))
+        assertFailsWith<IllegalArgumentException> { Commands.openCleanHomeWithSkin("x; reboot") }
+    }
+
     @Test fun commandsRejectInjection() {
         assertFailsWith<IllegalArgumentException> { Commands.settingsPut(SettingsNamespace.GLOBAL, "x", "1'; reboot; '") }
         assertFalse(Commands.isValidPackage("com.x; reboot"))

@@ -1,9 +1,9 @@
 <?xml version="1.0" encoding="utf-8"?>
-<!-- Window changes of the stock launcher only. No key filtering, so remote keys are untouched. -->
+<!-- Window changes only; the stock launcher is picked out in code. No key filtering, so remote keys
+     are untouched. canRetrieveWindowContent lets the service see what is in front after a restart. -->
 <accessibility-service xmlns:android="http://schemas.android.com/apk/res/android"
     android:accessibilityEventTypes="typeWindowStateChanged"
     android:accessibilityFeedbackType="feedbackGeneric"
     android:canRetrieveWindowContent="true"
     android:description="@string/redirect_description"
-    android:notificationTimeout="100"
-    android:packageNames="com.google.android.tvlauncher" />
+    android:notificationTimeout="100" />

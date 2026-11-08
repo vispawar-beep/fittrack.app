@@ -60,6 +60,7 @@ import androidx.lifecycle.viewmodel.compose.viewModel
 import app.cleanyourtv.core.Category
 import app.cleanyourtv.core.HomeSwitchPolicy
 import app.cleanyourtv.core.PackageView
+import app.cleanyourtv.core.Planner
 import app.cleanyourtv.core.Risk
 import app.cleanyourtv.core.Tweaks
 
@@ -333,46 +334,59 @@ private fun LookTab(state: UiState, vm: CleanViewModel, busy: Boolean) {
                                 Text("Update Clean Home on the TV")
                             }
                         }
-                        when {
-                            state.redirectOn -> {
-                                Text("The Home button opens Clean Home.", fontWeight = FontWeight.Medium)
-                                OutlinedButton(onClick = vm::disableHomeRedirect, enabled = !busy, modifier = Modifier.fillMaxWidth()) {
-                                    Text("Give Home back to the stock home")
-                                }
+                        val stockOff = state.inventory.any { it.pkg == Planner.STOCK_HOME_PKG && !it.installed.enabled }
+                        if (stockOff) {
+                            Text(
+                                "Clean Home is your permanent home screen. It stays after the TV restarts, until you restore the original.",
+                                fontWeight = FontWeight.Medium,
+                            )
+                        } else {
+                            Button(onClick = vm::startCleanHomeTrial, enabled = !busy, modifier = Modifier.fillMaxWidth()) {
+                                Text("Make Clean Home permanent (stays after restart)")
                             }
-                            state.history.cleanHomeActive -> Text("Clean Home is your home screen.")
-                            vendorLocked -> {
-                                Button(onClick = vm::enableHomeRedirect, enabled = !busy, modifier = Modifier.fillMaxWidth()) {
-                                    Text("Make the Home button open Clean Home")
-                                }
-                                Text(
-                                    "Recommended for your TV. The stock home stays installed and sends you straight on to " +
-                                        "Clean Home, so the remote's Netflix, YouTube and Inputs keys keep working.",
-                                    style = MaterialTheme.typography.bodySmall,
-                                )
-                                TextButton(onClick = vm::startCleanHomeTrial, enabled = !busy) {
-                                    Text("Or try replacing the stock home (60 s trial)")
-                                }
-                            }
-                            else -> Button(onClick = vm::startCleanHomeTrial, enabled = !busy, modifier = Modifier.fillMaxWidth()) {
-                                Text("Make it my home screen (60 s trial)")
+                            Text(
+                                "Turns the stock Android TV home off and makes Clean Home the home screen, with a Home guard " +
+                                    "as backup. You confirm on the TV; with no answer in 60 s everything goes back.",
+                                style = MaterialTheme.typography.bodySmall,
+                            )
+                        }
+                        if (stockOff || state.redirectOn) {
+                            OutlinedButton(onClick = vm::disableHomeRedirect, enabled = !busy, modifier = Modifier.fillMaxWidth()) {
+                                Text("Restore the original Android TV home")
                             }
                         }
                     }
                 }
             }
         }
+        if (state.cleanHomeInstalled) {
+            Text("Theme", style = MaterialTheme.typography.titleMedium)
+            Text(
+                "Changes Clean Home's look on the TV straight away. You can also pick a theme on the TV: Themes in the dock.",
+                style = MaterialTheme.typography.bodySmall,
+            )
+            SKINS.chunked(2).forEach { pair ->
+                Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    pair.forEach { (id, name) ->
+                        OutlinedButton(onClick = { vm.setSkin(id) }, enabled = !busy, modifier = Modifier.weight(1f)) { Text(name) }
+                    }
+                }
+            }
+        }
         if (state.profile?.homeSwitch == HomeSwitchPolicy.VENDOR_HOME_REDIRECT) {
             Text(
-                "On your ${state.props?.brand ?: "TV"}, the manufacturer's key service locks the Home key to the stock home. " +
-                    "The Home redirect works around that without disabling anything. The 60 s trial instead turns the stock " +
-                    "home off, and puts it back if Clean Home doesn't open or you don't answer.",
+                "On your ${state.props?.brand ?: "TV"}, the manufacturer's key service favours the stock home. Turning the stock " +
+                    "home off (as tested on the SANYO ATV R2, the same board) makes Clean Home the only home, and the Home guard " +
+                    "catches the stock home if the firmware ever brings it back. Both survive restarts.",
                 style = MaterialTheme.typography.bodySmall,
             )
         }
         state.profile?.notes?.forEach { Text("• $it", style = MaterialTheme.typography.bodySmall) }
     }
 }
+
+/** Clean Home's skins: id (as in tvhome Skins.kt) and name. */
+private val SKINS = listOf("crystal" to "Crystal", "midnight" to "Midnight", "aurora" to "Aurora", "sunset" to "Sunset")
 
 @Composable
 private fun UndoTab(state: UiState, vm: CleanViewModel, busy: Boolean) {
